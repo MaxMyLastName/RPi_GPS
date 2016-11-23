@@ -1,9 +1,9 @@
 //============================================================================
 // Name        : RPi_GPS.cpp
-// Author      : 
+// Author      : Max MyLastName
 // Version     :
-// Copyright   : Your copyright notice
-// Description : Hello World in C++, Ansi-style
+// Copyright   : Please use at your own risk
+// Description : GPS Tracker in C++, Ansi-style
 //============================================================================
 
 #include "RPi_GPS.h"
@@ -15,7 +15,8 @@ using namespace std;
 USART_GPS::USART_GPS(){
 
 	GPSdata_clear();
-	UART_SETUP();
+	UART_SETUP(USB_UART);
+	rx_flag = 0;
 
 }
 
@@ -62,9 +63,16 @@ void USART_GPS::GPSdata_clear(char* data, int limit){
 	}
 }
 
-void USART_GPS::UART_SETUP(){
-	//-------------------------
-	//----- SETUP USART 0 -----
+/*
+Setup UART interface (Default setup is 9600 BAUD 8N1)
+
+   @param: string uart - interface to open
+   @return: none
+ *
+ * */
+void USART_GPS::UART_SETUP(string uart){
+	/*//-------------------------
+	//-----   SETUP UART  -----
 	//-------------------------
 	//At bootup, pins 8 and 10 are already set to UART0_TXD, UART0_RXD (ie the alt0 function) respectively
 
@@ -80,17 +88,19 @@ void USART_GPS::UART_SETUP(){
 	//											immediately with a failure status if the output can't be written immediately.
 	//
 	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+	*/
 	uart0_filestream = -1;
-	uart0_filestream = open(USB_UART, O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
+	//uart0_filestream = open(USB_UART, O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
+	uart0_filestream = open(uart.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
 		if (uart0_filestream == -1)
 		{
 			//ERROR - CAN'T OPEN SERIAL PORT
 			printf(ERR_OPEN_UART);
-			//exit(1);
+			exit(1);
 
 		}
 
-	//CONFIGURE THE UART
+	/*//CONFIGURE THE UART
 	//The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
 	//	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800, B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
 	//	CSIZE:- CS5, CS6, CS7, CS8
@@ -99,7 +109,7 @@ void USART_GPS::UART_SETUP(){
 	//	IGNPAR = Ignore characters with parity errors
 	//	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
 	//	PARENB - Parity enable
-	//	PARODD - Odd parity (else even)
+	//	PARODD - Odd parity (else even)*/
 
 		struct termios options;
 		tcgetattr(uart0_filestream, &options);
@@ -110,27 +120,17 @@ void USART_GPS::UART_SETUP(){
 		tcflush(uart0_filestream, TCIFLUSH);
 		tcsetattr(uart0_filestream, TCSANOW, &options);
 
-}
+}//end fnc
 
-void USART_GPS::GPS_get(){
+/*
+Check if there is data in the buffer. If yes, receive data from GPS
 
-	// for testing only
-	/*const char tx_msg[] =
-			  "0000*6F\r\n"
-			  "$GPRMC,045103.000,A,3014.1984,N,09749.2872,W,0.67,161.46,030913,,,A*7C\r\n"
-			 // "$GPGGA,045104.000,3014.1985,N,09749.2873,W,1,09,1.2,211.6,M,-22.5,M,,0000*62\r\n"
-			 // "$GPSGA,045104.000,3014.1985,N,09749.2873,W,1,09,1.2,211.6,M,-22.5,M,,0000*62\r\n"
-			 // "$GPGSV,045200.000,A,3014.3820,N,09748.9514,W,36.88,65.02,030913,,,A*77\r\n"
-			 // "$GPRMC,045251.000,A,3014.4275,N,09749.0626,W,0.51,217.94,030913,,,A*7D\r\n"
-			  "$GPGGA,045104.000,3014.1985,N,09749.2873,W,1,09,1.2,211.6,M,-22.5,M,,0000*62\r\n"
-			  "$GPGSA,045104.000,3014.1985,N,09749.2873,W,1,09,1.2,211.6,M,-22.5,M,,0000*62\r\n"
-			  "$GPGSV,045200.000,A,3014.3820,N,09748.9514,W,36.88,65.02,030913,,,A*77\r\n"
-			  "$GPGSV,045200.000,A,3014.3820,N,09748.9514,W,36.88,65.02,030913,,,A*77\r\n"
-			  "$GPGSV,045200.000,A,3014.3820,N,09748.9514,W,36.88,65.02,030913,,,A*77\r\n"
-			  "$GPGSV,045200.000,A,3014.3820,N,09748.9514,W,36.88,65.02,030913,,,A*77\r\n"
-			  "$GPRMC,045251.000,A,3014.4275,N,09749.0626,W,0.51,217.94,030913,,,A*7D\r\n"
-			  "$GPGGA,045252.000,3014.4273,N,09749.0628,W,1,09,1.3,206.9,M,-22.5,M,,0000*6F\r\n";
-*/
+@params: none
+@return: rx_flag - set to 1 if data was received. Set to 0 if no data present.
+ *
+ * */
+int USART_GPS::GPS_get(){
+
 
 	char rx_buffer[1] = "";
 	char* p_rx_msg = rx_GPGGA;
@@ -154,6 +154,7 @@ void USART_GPS::GPS_get(){
 
 // If any characters
 if(uart0_filestream != (int)-1){
+	rx_flag = 1;
 
 	while((MSG_flag < 9)) // while message not complete
 	{
@@ -242,10 +243,19 @@ if(uart0_filestream != (int)-1){
 	GPSdata_parseGPRMC();
 	GPSdata_parseGPVTG();
 
-  } // end if
+    }
+	else{
+	rx_flag = 0;
+	}// end if
 
+
+return rx_flag;
 }// end GPS_get()
 
+/*
+Output raw unparsed messages for DEBUG
+
+ * */
 void USART_GPS::print_raw_rx_message(){
 
 	printw("The rx_GPGGA  is:%s"
@@ -259,7 +269,10 @@ void USART_GPS::print_raw_rx_message(){
 
 }
 
-/*  $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
+/*
+Parse GPGGA data string received from GPS
+
+$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 
 Where:
      GGA          Global Positioning System Fix Data
@@ -399,7 +412,10 @@ if(rx_GPGGA[0] != '\0'){
 
 }// end fnc
 
-/*$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
+/*
+Parse GPRMC data string received from GPS
+
+$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
 
 Where:
      RMC          Recommended Minimum sentence C
@@ -518,7 +534,11 @@ void USART_GPS::GPSdata_parseGPRMC(){
 
 }//end fnc
 
-/*$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48
+/*
+Parse GPVTG data string received from GPS
+
+
+$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48
 
 where:
         VTG          Track made good and ground speed
@@ -606,7 +626,13 @@ void USART_GPS::GPSdata_parseGPVTG(){
 
 }//end fnc
 
-void USART_GPS::GPSdata_display(){
+/* Display parsed data without curses (for DEBUG)
+
+   @param: none
+   @return: none
+ *
+ * */
+void USART_GPS::GPSdata_display_data(){
 
 	printf("Raw GPGGA data: %s\n", rx_GPGGA);
 	printf("Raw GPRMC data: %s\n", rx_GPRMC);
